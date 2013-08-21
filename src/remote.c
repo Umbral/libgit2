@@ -262,6 +262,42 @@ static int get_optional_config(
 	return error;
 }
 
+static int any_config_entry_cb(
+	const git_config_entry *entry,
+	void *payload)
+{
+	bool *found = (bool *)payload;
+
+	GIT_UNUSED(entry);
+
+	*found = true;
+	return 1;
+}
+
+static int any_remote_config_entry(
+	bool *found, const git_config *config, const char* name)
+{
+	git_buf buf = GIT_BUF_INIT;
+	int error;
+	bool any_entry = false;
+
+	if (git_buf_printf(&buf, "remote\\.%s\\.*", name) < 0)
+		return -1;
+
+	error = git_config_foreach_match(
+		config,
+		git_buf_cstr(&buf),
+		any_config_entry_cb, &any_entry);
+
+	if (!error || error == GIT_EUSER) {
+		*found = any_entry;
+		error = 0;
+	}
+
+	git_buf_free(&buf);
+	return error;
+}
+
 int git_remote_load(git_remote **out, git_repository *repo, const char *name)
 {
 	git_remote *remote;
@@ -351,8 +387,13 @@ int git_remote_load(git_remote **out, git_repository *repo, const char *name)
 	optional_setting_found |= found;
 
 	if (!optional_setting_found) {
-		error = GIT_ENOTFOUND;
-		goto cleanup;
+		if ((error = any_remote_config_entry(&found, config, remote->name)) < 0)
+			goto cleanup;
+
+		if (!found) {
+			error = GIT_ENOTFOUND;
+			goto cleanup;
+		}
 	}
 
 	*out = remote;
