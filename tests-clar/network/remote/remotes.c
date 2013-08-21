@@ -378,6 +378,25 @@ void test_network_remote_remotes__can_load_with_an_empty_url(void)
 	git_remote_free(remote);
 }
 
+void test_network_remote_remotes__can_load_with_only_an_empty_fetchspec(void)
+{
+	git_remote *remote = NULL;
+
+	cl_git_pass(git_remote_load(&remote, _repo, "no-remote-url"));
+
+	cl_git_fail(git_remote_connect(remote, GIT_DIRECTION_FETCH));
+
+	git_remote_free(remote);
+}
+
+void test_network_remote_remotes__cannot_load_with_only_an_unrelated_property(void)
+{
+	git_remote *remote = NULL;
+
+	cl_git_fail_with(
+		git_remote_load(&remote, _repo, "bogus-remote"), GIT_ENOTFOUND);
+}
+
 void test_network_remote_remotes__check_structure_version(void)
 {
 	git_transport transport = GIT_TRANSPORT_INIT;
